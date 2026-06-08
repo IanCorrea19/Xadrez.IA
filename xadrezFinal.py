@@ -9,7 +9,6 @@ import time
 import json
 from datetime import datetime
 
-# --- CONFIGURAÇÕES ---
 LARGURA_JANELA = 512
 ALTURA_TABULEIRO = 512
 TAMANHO_CASA = LARGURA_JANELA // 8
@@ -18,7 +17,6 @@ MARGEM_TOPO = 60
 MARGEM_BASE = 60
 ALTURA_TOTAL_JOGO = ALTURA_TABULEIRO + MARGEM_TOPO + MARGEM_BASE
 
-# Estados do Jogo
 ESTADO_TELA_INICIO = 0
 ESTADO_MENU_PRINCIPAL = 1
 ESTADO_MENU_TEMPO_1V1 = 2
@@ -33,13 +31,11 @@ ESTADO_PAUSA = 10
 ESTADO_FIM_DE_JOGO = 11
 ESTADO_ESTATISTICAS_PERFIL = 12
 
-# Caminhos relativos à localização deste arquivo (portável entre máquinas)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PASTA_IMAGENS = os.path.join(BASE_DIR, "imagensxadrez")
 PASTA_SONS = os.path.join(BASE_DIR, "sons")
 ARQUIVO_DADOS = os.path.join(BASE_DIR, "dados_jogadores.json")
 
-# Cores
 COR_BG_MODERNA = (49, 46, 43)
 COR_BOTAO_MODERNO = (39, 36, 33)
 COR_TEXTO_BOLD = (255, 255, 255)
@@ -57,7 +53,6 @@ COR_EMPATE = (200, 200, 200)
 
 DEVICE = torch.device("cpu")
 
-# Peças capturadas (exibição estilo chess.com ao lado do nome do jogador)
 TAM_ICONE_CAPTURA = 18  # tamanho em px do ícone pequeno de cada peça capturada
 VALOR_PECA = {
     chess.PAWN: 1,
@@ -74,10 +69,9 @@ CONTAGEM_INICIAL = {
     chess.QUEEN: 1,
 }
 ORDEM_CAPTURAS = [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]
-_icones_captura = {}  # cache de ícones pequenos (gerado 1x das imagens grandes)
+_icones_captura = {} 
 
 
-# --- GERENCIAMENTO DE DADOS (JSON) ---
 def carregar_dados():
     if os.path.exists(ARQUIVO_DADOS):
         try:
@@ -93,10 +87,6 @@ def salvar_dados(dados):
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
 
-# --- 1. ESTRUTURA DA IA ---
-# Rede "policy": prevê o lance (índice from*64+to). IDÊNTICA à FastChessCNN do
-# treino (treino_estimativa.py) — sem Sigmoid e sem permute, pois o encoder já
-# entrega o tensor em NCHW (1, 12, 8, 8).
 class ChessNet(nn.Module):
     def __init__(self):
         super(ChessNet, self).__init__()
@@ -118,8 +108,6 @@ class ChessNet(nn.Module):
 
 
 def tabuleiro_para_tensor(board):
-    # Codificação IDÊNTICA ao preprocess/treino: canal = piece_type-1 (+6 p/ pretas),
-    # posição = (square // 8, square % 8) — a1 embaixo, SEM flip. NCHW (1,12,8,8).
     t = np.zeros((12, 8, 8), dtype=np.float32)
     for square, peca in board.piece_map().items():
         canal = (peca.piece_type - 1) + (0 if peca.color == chess.WHITE else 6)
@@ -131,14 +119,11 @@ def ia_escolher_movimento(modelo, board):
     moves = list(board.legal_moves)
     if not moves:
         return None
-    # Uma passada na posição atual; entre os lances LEGAIS, escolhe o de maior
-    # logit no índice from*64+to (isso mascara lances ilegais automaticamente).
     with torch.no_grad():
         logits = modelo(tabuleiro_para_tensor(board))[0]
     return max(moves, key=lambda m: logits[m.from_square * 64 + m.to_square].item())
 
 
-# --- 3. INTERFACE E SONS ---
 def carregar_imagens():
     pecas = {}
     mapa = {
@@ -195,8 +180,6 @@ def tocar_som_movimento(board, move, sons):
     elif "move" in sons:
         sons["move"].play()
 
-
-# --- COMPONENTES DE UI ---
 def desenhar_botao_moderno(
     tela, titulo, subtitulo, x, y, w, h, hover, f_bold, f_regular
 ):
@@ -237,7 +220,6 @@ def desenhar_seletor(tela, titulo, valor, x, y, w, h, f_titulo, f_valor):
     return btn_esq, btn_dir
 
 
-# --- SISTEMA DE POP-UP DE CONFIRMAÇÃO ---
 def confirmar_acao(tela, mensagem, fonte_bold, fonte_menu):
     fundo_atual = tela.copy()
     overlay = pygame.Surface((LARGURA_JANELA, ALTURA_TOTAL_JOGO))
@@ -250,20 +232,17 @@ def confirmar_acao(tela, mensagem, fonte_bold, fonte_menu):
         mouse_pos = pygame.mouse.get_pos()
         tela.blit(fundo_atual, (0, 0))
 
-        # Caixa de diálogo
         caixa_rect = pygame.Rect(56, ALTURA_TOTAL_JOGO // 2 - 80, 400, 160)
         pygame.draw.rect(tela, COR_BG_MODERNA, caixa_rect, border_radius=8)
         pygame.draw.rect(
             tela, COR_DESTAQUE_MODERNO, caixa_rect, width=2, border_radius=8
         )
 
-        # Texto centrado
         txt = fonte_bold.render(mensagem, True, COR_TEXTO_BOLD)
         tela.blit(
             txt, txt.get_rect(center=(LARGURA_JANELA // 2, ALTURA_TOTAL_JOGO // 2 - 30))
         )
 
-        # Botões Sim e Não
         b_sim = desenhar_botao_simples_moderno(
             tela,
             "Sim",
@@ -301,8 +280,6 @@ def confirmar_acao(tela, mensagem, fonte_bold, fonte_menu):
                 if b_nao.collidepoint(event.pos):
                     return False
 
-
-# --- SISTEMA DE PROMOÇÃO ---
 def selecionar_promocao(tela, cor_jogador, imgs):
     opcoes = [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]
     simbolos = (
@@ -346,8 +323,6 @@ def selecionar_promocao(tela, cor_jogador, imgs):
                     if r.collidepoint(event.pos):
                         return tipo
 
-
-# --- DESENHO DO TABULEIRO ---
 def _obter_icones_captura(imagens):
     """Cache de ícones pequenos das peças (gerado 1x a partir das imagens grandes)."""
     if not _icones_captura:
@@ -581,8 +556,6 @@ def exibir_fim_de_jogo(tela, txt, cor):
     txt_s = fonte.render(txt, True, cor)
     tela.blit(txt_s, txt_s.get_rect(center=(LARGURA_JANELA / 2, ALTURA_TOTAL_JOGO / 2)))
 
-
-# --- MAIN LOOP ---
 def main():
     pygame.init()
     pygame.font.init()
