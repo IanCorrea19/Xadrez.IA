@@ -324,7 +324,6 @@ def selecionar_promocao(tela, cor_jogador, imgs):
                         return tipo
 
 def _obter_icones_captura(imagens):
-    """Cache de ícones pequenos das peças (gerado 1x a partir das imagens grandes)."""
     if not _icones_captura:
         for simbolo, img in imagens.items():
             _icones_captura[simbolo] = pygame.transform.smoothscale(
@@ -334,7 +333,6 @@ def _obter_icones_captura(imagens):
 
 
 def _capturas_por_tipo(board, cor):
-    """Quantas peças da cor dada já sumiram do tabuleiro (= foram capturadas)."""
     caps = {}
     for tipo in ORDEM_CAPTURAS:
         restantes = len(board.pieces(tipo, cor))
@@ -343,13 +341,10 @@ def _capturas_por_tipo(board, cor):
 
 
 def _material(board, cor):
-    """Soma do valor das peças da cor que ainda estão no tabuleiro."""
     return sum(VALOR_PECA[t] * len(board.pieces(t, cor)) for t in VALOR_PECA)
 
 
 def desenhar_capturas(tela, imagens, board, x, y_centro, cor_capturada, vantagem):
-    """Desenha, a partir de (x, y_centro), os ícones das peças da cor 'cor_capturada'
-    que foram capturadas, agrupadas por tipo, e o '+N' de vantagem material (se >0)."""
     icones = _obter_icones_captura(imagens)
     caps = _capturas_por_tipo(board, cor_capturada)
     y = y_centro - TAM_ICONE_CAPTURA // 2
@@ -402,9 +397,6 @@ def desenhar_tudo(
     tela.blit(s_pretas, (15, y_pretas))
     tela.blit(s_brancas, (15, y_brancas))
 
-    # Peças capturadas ao lado de cada nome (estilo chess.com).
-    # As pretas (em cima) capturaram peças BRANCAS; as brancas (embaixo), peças PRETAS.
-    # Vantagem material só aparece pra quem está na frente.
     vantagem_brancas = _material(board, chess.WHITE) - _material(board, chess.BLACK)
     desenhar_capturas(
         tela, imagens, board,
